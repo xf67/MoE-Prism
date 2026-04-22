@@ -1,0 +1,4 @@
+[submodule "vllm"]
+	path = vllm
+	url = git@github.com:xf67/vllm.git
+	branch = 0.11.2
