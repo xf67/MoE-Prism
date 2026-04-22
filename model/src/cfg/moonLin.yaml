@@ -1,0 +1,69 @@
+
+# -------------------------------------------------------------------
+# 操作配置 (Operation Parameters)
+# -------------------------------------------------------------------
+stage: 1 # (-stage) which stage we are running: 1 for carving, 2 for dropping
+
+bsz: 1
+early_stop: 1000 # the layer stoped before finish, setting like 1000 to for no early stop
+offload_device: 'cuda' # If cpu, then we will do it layer by layer, and only one layer in GPU. (default is cpu)
+
+partition:
+  method: 'sa'
+  n: 4         # number of sub-experts
+  shared: 0  # number of shared experts when carving
+  drop: 0  # number of droped experts when carving
+  k: 3 # 认为一个expert内激活sub-expert的数目
+  sa:
+    iter: 100000 #16min on A100, 9min on H800
+    initial_temp: 500.0
+    cooling_rate: 0.995
+  kmeans:
+    iter: 40 #13min
+    simple: true
+    alpha: 0 # 考虑expert自身相似性时用于加权的权重
+  metis:
+    threshold: 5000  #低于这个共激活次数的忽略，以减低图的复杂度
+
+gate:
+  list: [4,3,1,0,0,0]
+  method: 'linear'
+  relation: # 用共同激活找中心
+    s: 64        # (-s) 1/s for gate_width / sub-expert_width
+  linear: # 用原模型，不支持额外share
+    layer: 1 # 1 表示单层gate 
+
+
+drop:
+  list: [128]
+  method: 'freq'
+  freq:
+    gate_as_weight: false
+    random: false
+
+
+# -------------------------------------------------------------------
+# I/O 和模型路径配置 (I/O & Model Path)
+# -------------------------------------------------------------------
+io:
+  # Model type: mixtral, olmoe, deepseek, qwen
+  model_type: "deepseek"
+  # where to load the model
+  tokenizer_from: "./moonlight"
+  model_from: "./moonlight"
+  # where to save the model
+  model_to: "./moonlightC/lin"
+  # self-defined module path
+  addition: [
+            # "./src/modeling/modeling_deepseek.py",
+            # "./src/modeling/configuration_deepseek.py",
+            # "./src/custom_models.py"
+            ] #linear的时候不要加这个，否则会覆盖原模型的定义
+# -------------------------------------------------------------------
+# Debug
+# -------------------------------------------------------------------
+debug:
+  # (-save) Save activation score
+  save_activations: false
+  # (-saveF) Folder to save activation score
+  save_folder: "./H"

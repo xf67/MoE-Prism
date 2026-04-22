@@ -1,0 +1,1 @@
+python ./src/main.py -cfg ./src/cfg/olmoeLin.yaml

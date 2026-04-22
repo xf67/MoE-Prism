@@ -1,0 +1,71 @@
+
+# -------------------------------------------------------------------
+# 操作配置 (Operation Parameters)
+# -------------------------------------------------------------------
+stage: 1.5 # (-stage) which stage we are running: 1 for carving, 2 for dropping
+
+bsz: 1
+early_stop: 1000 # the layer stoped before finish, setting like 1000 to for no early sto
+offload_device: 'cpu'
+
+partition:
+  method: 'sa'
+  n: 4        # number of sub-experts
+  shared: 0  # number of shared experts when carving
+  drop: 0  # number of droped experts when carving
+  k: 3 # 认为一个expert内激活sub-expert的数目
+  sa:
+    iter: 100000
+    initial_temp: 100.0
+    cooling_rate: 0.995
+  kmeans:
+    iter: 40
+    simple: true
+    alpha: 0 # 考虑expert自身相似性时用于加权的权重
+  metis:
+    threshold: 5000  #低于这个共激活次数的忽略，以减低图的复杂度
+
+gate:
+  list: [4,4,4,3,1,0]
+  method: 'relation' 
+  relation: # 用共同激活找中心，支持从头carve或者从已经拆成linear的后面接着做（跳过parttition部分）
+    s: 0         # (-s) 1/s for gate_width / sub-expert_width
+    s_true: 4     # just the gate_width, used if s==0
+  linear: # 用原模型，不支持额外share
+    layer: 1 # 1 表示单层gate 
+
+drop:
+  list: [40] #每层drop的expert数目，如果layers比list长，则用list的最后一个数补齐到layer长度；如果第一个层不是moe层，list的第一个元素相当于没用上
+  # 希望能做动态expert数，但是对模型load太不友好了，transformers和vllm都没法直接handle，懒得写实现
+  # 所以暂时只能在这个list里填一个数
+  method: 'freq'
+  freq:
+    gate_as_weight: true
+    random: false
+
+
+# -------------------------------------------------------------------
+# I/O 和模型路径配置 (I/O & Model Path)
+# -------------------------------------------------------------------
+io:
+  # Model type: mixtral, olmoe, deepseek, qwen
+  model_type: "deepseek"
+  # where to load the model
+  tokenizer_from: "./deepseekC/lin"
+  model_from: "./deepseekC/lin"
+  # where to save the model
+  model_to: "./deepseekC/r2"
+  # self-defined module path
+  addition: []
+
+# -------------------------------------------------------------------
+# Debug
+# -------------------------------------------------------------------
+debug:
+  # (-save) Save activation score
+  save_activations: false
+  # (-saveF) Folder to save activation score
+  save_folder: "./fineMoE/logs"
+
+  save_activations_for_drop: false
+  save_file_name: "drop_data.txt"
